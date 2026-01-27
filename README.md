@@ -27,7 +27,7 @@ Claude Code → Nginx (4318) → ├── Upstream (transparent proxy)
 ### Prerequisites
 
 - macOS with Homebrew
-- Python 3
+- Python 3 (with built-in `sqlite3` module)
 - Claude Code CLI
 
 ### Installation
