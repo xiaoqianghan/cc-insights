@@ -27,12 +27,13 @@ Claude Code → Nginx (4318) → ├── Upstream (transparent proxy)
 ### Prerequisites
 
 - macOS with Homebrew
+- Python 3
 - Claude Code CLI
 
 ### Installation
 
 ```bash
-git clone https://github.com/yourname/cc-insights.git
+git clone https://github.com/xiaoqianghan/cc-insights.git
 cd cc-insights
 ./install.sh
 ```
@@ -86,37 +87,34 @@ cci start/stop      # Control services
 ============================================================
   Claude Code Usage - Today
 ============================================================
-  Total Requests:      79
-  Input Tokens:        156,783
-  Output Tokens:       61,827
-  Cache Read Tokens:   6,906,787
-  Cache Create Tokens: 620,562
-  Total Tokens:        7,745,959
-  Est. Cost:           $31.57
-  Cache Hit Rate:      97.8%
+  Total Requests:      42
+  Input Tokens:        85,234
+  Output Tokens:       32,891
+  Cache Read Tokens:   3,456,789
+  Cache Create Tokens: 312,456
+  Total Tokens:        3,887,370
+  Est. Cost:           $15.82
+  Cache Hit Rate:      97.6%
 
   Daily Breakdown:
   --------------------------------------------------------
-  2026-01-21  |     79 req  |     7,745,959 tokens
+  2025-01-15  |     42 req  |     3,887,370 tokens
 ============================================================
 ```
 
 ## Insights You Can Gain
 
-### Cost Analysis
-- Daily/weekly/monthly spend tracking
-- Cost breakdown by model (Opus vs Haiku)
-- Budget forecasting based on trends
+### Currently Available
+- **Cost tracking** - Daily/weekly/monthly spend with estimated costs
+- **Token breakdown** - Input, output, cache read, cache creation tokens
+- **Cache hit rate** - Measure prompt caching efficiency
+- **Request counts** - Track API call volume over time
 
-### Cache Efficiency
-- Cache hit rate percentage
-- Estimated savings from caching
-- Identify sessions with poor cache utilization
-
-### Usage Patterns
-- Peak usage hours
-- Session duration distribution
-- Token consumption trends
+### Planned Features
+- Cost breakdown by model (Opus vs Haiku vs Sonnet)
+- Peak usage hours analysis
+- Session-level insights
+- Budget alerts and forecasting
 
 ## Data Storage
 
