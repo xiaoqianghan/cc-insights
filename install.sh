@@ -45,17 +45,27 @@ done
 echo ""
 echo -e "${CYAN}[2/6] Configuring upstream...${NC}"
 echo ""
-echo "Enter your OTEL upstream URL (e.g., https://app.jellyfish.co/ingest-webhooks/claude/xxxx)"
-echo "Leave empty to skip upstream forwarding (local-only mode):"
+echo "Enter your OTEL upstream URL"
+echo "Example: https://app.jellyfish.co/ingest-webhooks/claude/xxxx"
+echo ""
+echo "Leave empty for local-only mode (no upstream forwarding):"
 read -r UPSTREAM_URL
 
 if [ -n "$UPSTREAM_URL" ]; then
-    # Extract hostname from URL
+    # Parse URL: https://host/path -> base=https://host, path=/path, host=host
     UPSTREAM_HOST=$(echo "$UPSTREAM_URL" | sed -E 's|https?://([^/]+).*|\1|')
-    echo -e "  Upstream host: ${GREEN}$UPSTREAM_HOST${NC}"
+    UPSTREAM_BASE=$(echo "$UPSTREAM_URL" | sed -E 's|(https?://[^/]+).*|\1|')
+    UPSTREAM_PATH=$(echo "$UPSTREAM_URL" | sed -E 's|https?://[^/]+(.*)|\1|')
+
+    echo ""
+    echo -e "  Parsed configuration:"
+    echo -e "    Base: ${GREEN}$UPSTREAM_BASE${NC}"
+    echo -e "    Path: ${GREEN}$UPSTREAM_PATH${NC}"
+    echo -e "    Host: ${GREEN}$UPSTREAM_HOST${NC}"
 else
-    echo -e "  ${YELLOW}Running in local-only mode (no upstream forwarding)${NC}"
-    UPSTREAM_URL="http://127.0.0.1:4319/v1/metrics"
+    echo -e "  ${YELLOW}Running in local-only mode${NC}"
+    UPSTREAM_BASE="http://127.0.0.1:4319"
+    UPSTREAM_PATH="/v1/metrics"
     UPSTREAM_HOST="127.0.0.1"
 fi
 
@@ -70,22 +80,31 @@ echo -e "  ${GREEN}✓${NC} Created $DATA_DIR"
 echo ""
 echo -e "${CYAN}[4/6] Installing configurations...${NC}"
 
-# Nginx config
 NGINX_CONF_DIR="/opt/homebrew/etc/nginx/servers"
 mkdir -p "$NGINX_CONF_DIR"
 
-sed -e "s|{{UPSTREAM_URL}}|$UPSTREAM_URL|g" \
+# Remove old configs to avoid port conflicts
+for old_conf in "otel-proxy.conf" "cc-insights.conf"; do
+    if [ -f "$NGINX_CONF_DIR/$old_conf" ]; then
+        echo -e "  ${YELLOW}!${NC} Removing old config: $old_conf"
+        rm -f "$NGINX_CONF_DIR/$old_conf"
+    fi
+done
+
+# Generate nginx config from template
+sed -e "s|{{UPSTREAM_BASE}}|$UPSTREAM_BASE|g" \
+    -e "s|{{UPSTREAM_PATH}}|$UPSTREAM_PATH|g" \
     -e "s|{{UPSTREAM_HOST}}|$UPSTREAM_HOST|g" \
     "$SCRIPT_DIR/configs/nginx-otel-proxy.conf" > "$NGINX_CONF_DIR/cc-insights.conf"
-echo -e "  ${GREEN}✓${NC} Nginx config: $NGINX_CONF_DIR/cc-insights.conf"
+echo -e "  ${GREEN}✓${NC} Nginx: $NGINX_CONF_DIR/cc-insights.conf"
 
-# Vector config
+# Generate vector config from template
 VECTOR_CONF="/opt/homebrew/etc/vector/vector.yaml"
 mkdir -p "$(dirname "$VECTOR_CONF")"
 
 sed -e "s|{{DATA_DIR}}|$DATA_DIR|g" \
     "$SCRIPT_DIR/configs/vector.yaml" > "$VECTOR_CONF"
-echo -e "  ${GREEN}✓${NC} Vector config: $VECTOR_CONF"
+echo -e "  ${GREEN}✓${NC} Vector: $VECTOR_CONF"
 
 # Step 5: Install CLI command
 echo ""
@@ -100,7 +119,7 @@ if [ -L "$CCI_LINK" ] || [ -f "$CCI_LINK" ]; then
     sudo rm -f "$CCI_LINK"
 fi
 sudo ln -sf "$SCRIPT_DIR/scripts/ctl.sh" "$CCI_LINK"
-echo -e "  ${GREEN}✓${NC} CLI command installed: cci"
+echo -e "  ${GREEN}✓${NC} CLI installed: cci"
 
 # Step 6: Start services
 echo ""
@@ -131,9 +150,7 @@ echo -e "${GREEN}╚════════════════════
 echo ""
 echo "Next steps:"
 echo ""
-echo "  1. Configure Claude Code to use local endpoint:"
-echo ""
-echo "     Add to ~/.claude/settings.json:"
+echo "  1. Configure Claude Code (~/.claude/settings.json):"
 echo ""
 echo '     {'
 echo '       "env": {'

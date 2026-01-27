@@ -136,7 +136,7 @@ test_endpoint() {
 }
 
 stats() {
-    python3 "$SCRIPT_DIR/stats.py" "$@"
+    CC_INSIGHTS_DATA_DIR="$DATA_DIR" python3 "$SCRIPT_DIR/stats.py" "$@"
 }
 
 case "$1" in
