@@ -72,13 +72,18 @@ If your company requires authentication headers:
 ### CLI Commands
 
 ```bash
-cci status          # Check service status
-cci stats           # Today's usage
-cci stats week      # This week's usage
-cci stats month     # This month's usage
-cci test            # Send test metric
-cci logs            # View Vector logs
-cci start/stop      # Control services
+# Use scripts directly
+./scripts/ctl.sh status          # Check service status
+./scripts/ctl.sh stats           # Today's usage
+./scripts/ctl.sh stats week      # This week's usage
+./scripts/ctl.sh stats month     # This month's usage
+./scripts/ctl.sh test            # Send test metric
+./scripts/ctl.sh logs            # View Vector logs
+./scripts/ctl.sh start/stop      # Control services
+
+# Or install global command (optional)
+sudo ln -sf $(pwd)/scripts/ctl.sh /usr/local/bin/cci
+cci stats   # Then use cci anywhere
 ```
 
 ### Example Output
@@ -170,7 +175,7 @@ Each line in the JSONL files is an OTEL metrics payload:
 ### Services not running
 
 ```bash
-cci status                    # Check status
+./scripts/ctl.sh status       # Check status
 brew services restart nginx   # Restart nginx
 brew services restart vector  # Restart vector
 ```
@@ -184,12 +189,12 @@ brew services restart vector  # Restart vector
 
 2. Test the endpoint:
    ```bash
-   cci test
+   ./scripts/ctl.sh test
    ```
 
 3. Check logs:
    ```bash
-   cci logs
+   ./scripts/ctl.sh logs
    tail -f /opt/homebrew/var/log/nginx/error.log
    ```
 

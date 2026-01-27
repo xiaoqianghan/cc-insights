@@ -24,7 +24,7 @@ echo -e "${CYAN}╚════════════════════�
 echo ""
 
 # Step 1: Check dependencies
-echo -e "${CYAN}[1/6] Checking dependencies...${NC}"
+echo -e "${CYAN}[1/5] Checking dependencies...${NC}"
 
 if ! command -v brew &> /dev/null; then
     echo -e "${RED}Error: Homebrew is required. Install from https://brew.sh${NC}"
@@ -43,7 +43,7 @@ done
 
 # Step 2: Get upstream configuration
 echo ""
-echo -e "${CYAN}[2/6] Configuring upstream...${NC}"
+echo -e "${CYAN}[2/5] Configuring upstream...${NC}"
 echo ""
 echo "Enter your OTEL upstream URL"
 echo "Example: https://app.jellyfish.co/ingest-webhooks/claude/xxxx"
@@ -71,14 +71,14 @@ fi
 
 # Step 3: Create data directories
 echo ""
-echo -e "${CYAN}[3/6] Creating data directories...${NC}"
+echo -e "${CYAN}[3/5] Creating data directories...${NC}"
 
 mkdir -p "$DATA_DIR"/{raw,failed,vector-data}
 echo -e "  ${GREEN}✓${NC} Created $DATA_DIR"
 
 # Step 4: Install configurations
 echo ""
-echo -e "${CYAN}[4/6] Installing configurations...${NC}"
+echo -e "${CYAN}[4/5] Installing configurations...${NC}"
 
 NGINX_CONF_DIR="/opt/homebrew/etc/nginx/servers"
 mkdir -p "$NGINX_CONF_DIR"
@@ -106,24 +106,13 @@ sed -e "s|{{DATA_DIR}}|$DATA_DIR|g" \
     "$SCRIPT_DIR/configs/vector.yaml" > "$VECTOR_CONF"
 echo -e "  ${GREEN}✓${NC} Vector: $VECTOR_CONF"
 
-# Step 5: Install CLI command
-echo ""
-echo -e "${CYAN}[5/6] Installing CLI command...${NC}"
-
+# Set script permissions
 chmod +x "$SCRIPT_DIR/scripts/ctl.sh"
 chmod +x "$SCRIPT_DIR/scripts/stats.py"
 
-# Create symlink for 'cci' command
-CCI_LINK="/usr/local/bin/cci"
-if [ -L "$CCI_LINK" ] || [ -f "$CCI_LINK" ]; then
-    sudo rm -f "$CCI_LINK"
-fi
-sudo ln -sf "$SCRIPT_DIR/scripts/ctl.sh" "$CCI_LINK"
-echo -e "  ${GREEN}✓${NC} CLI installed: cci"
-
-# Step 6: Start services
+# Step 5: Start services
 echo ""
-echo -e "${CYAN}[6/6] Starting services...${NC}"
+echo -e "${CYAN}[5/5] Starting services...${NC}"
 
 brew services restart nginx
 brew services restart vector
@@ -158,14 +147,13 @@ echo '         "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": "http://127.0.0.1:4318/v1/
 echo '       }'
 echo '     }'
 echo ""
-echo "  2. Test the setup:"
+echo "  2. View usage stats:"
 echo ""
-echo "     cci test      # Send test metric"
-echo "     cci status    # Check service status"
+echo "     $SCRIPT_DIR/scripts/ctl.sh stats          # Today"
+echo "     $SCRIPT_DIR/scripts/ctl.sh stats week     # This week"
+echo "     $SCRIPT_DIR/scripts/ctl.sh stats month    # This month"
 echo ""
-echo "  3. View usage stats:"
+echo "  3. (Optional) Install global 'cci' command:"
 echo ""
-echo "     cci stats          # Today"
-echo "     cci stats week     # This week"
-echo "     cci stats month    # This month"
+echo "     sudo ln -sf $SCRIPT_DIR/scripts/ctl.sh /usr/local/bin/cci"
 echo ""
