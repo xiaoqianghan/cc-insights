@@ -12,7 +12,12 @@
 #   cci stats    - Show usage statistics (today/week/month)
 #
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+# Resolve symlinks to get the real script location
+SCRIPT_PATH="$0"
+if [ -L "$SCRIPT_PATH" ]; then
+    SCRIPT_PATH="$(readlink "$SCRIPT_PATH")"
+fi
+SCRIPT_DIR="$(cd "$(dirname "$SCRIPT_PATH")" && pwd)"
 DATA_DIR="${CC_INSIGHTS_DATA_DIR:-$HOME/.claude/cc-insights}"
 LOG_FILE="/opt/homebrew/var/log/vector.log"
 
