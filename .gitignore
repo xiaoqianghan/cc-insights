@@ -1,0 +1,24 @@
+# Data files (keep in data directory, not repo)
+*.jsonl
+*.db
+vector-data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# macOS
+.DS_Store
+._*
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Logs
+*.log

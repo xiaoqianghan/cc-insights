@@ -1,0 +1,26 @@
+# CC-Insights: Vector Configuration
+# Receives mirrored OTEL metrics from Nginx and stores locally
+#
+# Variables replaced during installation:
+#   {{DATA_DIR}} - Data directory path (e.g., ~/.claude/cc-insights)
+
+data_dir: {{DATA_DIR}}/vector-data
+
+# Source: Receive mirrored OTEL HTTP data from Nginx
+sources:
+  otel_receiver:
+    type: http_server
+    address: "127.0.0.1:4319"
+    path: /v1/metrics
+    decoding:
+      codec: json
+
+# Sinks: Local storage (daily rotation)
+sinks:
+  local_raw:
+    type: file
+    inputs:
+      - otel_receiver
+    path: {{DATA_DIR}}/raw/metrics-%Y-%m-%d.jsonl
+    encoding:
+      codec: json
