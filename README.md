@@ -6,10 +6,22 @@ Collect and analyze your Claude Code usage metrics locally, while optionally for
 
 ## Why?
 
-- **Understand your usage** - See token consumption, costs, and patterns
-- **Optimize efficiency** - Track cache hit rates and identify savings
-- **Keep data locally** - Your metrics, your control
-- **Transparent proxy** - Forwards to upstream without modification
+没有度量就没有改进。CC-Insights 帮助你：
+
+- **量化使用成本** - 知道每天/每周花了多少钱，避免账单惊喜
+- **发现效率问题** - Cache 命中率低？可能是 prompt 策略需要优化
+- **识别使用模式** - 哪些任务消耗最多？值得改进工作流吗？
+- **数据驱动决策** - Opus vs Sonnet vs Haiku，哪个性价比更高？
+- **本地数据所有权** - 你的使用数据，你自己掌控
+
+### 你可能发现的问题
+
+| 现象 | 可能的原因 | 改进方向 |
+|------|-----------|----------|
+| Cache 命中率 < 90% | 频繁切换项目/上下文 | 集中处理同类任务 |
+| Output tokens 异常高 | 生成了大量重复代码 | 更精确的 prompt |
+| 单次 session 成本过高 | 上下文过长未及时清理 | 适时开启新 session |
+| Haiku 调用为 0 | 没有利用轻量模型 | 简单任务切换 Haiku |
 
 ## Architecture
 
