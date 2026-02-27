@@ -132,6 +132,17 @@ def parse_otel_metrics(data: dict, fallback_date: str = None) -> list[dict]:
     """Parse OTEL metric data, returning one record per model."""
     if not isinstance(data, dict):
         return []
+    # Skip non-OTEL records (e.g. Vector HTTP server metadata)
+    if "resourceMetrics" not in data:
+        return []
+    # Skip empty/test payloads with no actual metrics
+    has_metrics = any(
+        scope.get("metrics")
+        for rm in data.get("resourceMetrics", [])
+        for scope in rm.get("scopeMetrics", [])
+    )
+    if not has_metrics:
+        return []
 
     try:
         latest_time_nano = 0
@@ -184,10 +195,9 @@ def parse_otel_metrics(data: dict, fallback_date: str = None) -> list[dict]:
             timestamp = datetime.now().isoformat()
             date = datetime.now().strftime("%Y-%m-%d")
 
+        # No token data (e.g. session.count, active_time payloads) — skip
         if not per_model:
-            return [{"timestamp": timestamp, "date": date, "model": None,
-                     "input_tokens": 0, "output_tokens": 0,
-                     "cache_read_tokens": 0, "cache_creation_tokens": 0, "total_tokens": 0}]
+            return []
 
         results = []
         for model, tokens in per_model.items():
