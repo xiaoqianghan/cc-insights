@@ -6,22 +6,22 @@ Collect and analyze your Claude Code usage metrics locally, while optionally for
 
 ## Why?
 
-没有度量就没有改进。CC-Insights 帮助你：
+You can't improve what you don't measure. CC-Insights helps you:
 
-- **量化使用成本** - 知道每天/每周花了多少钱，避免账单惊喜
-- **发现效率问题** - Cache 命中率低？可能是 prompt 策略需要优化
-- **识别使用模式** - 哪些任务消耗最多？值得改进工作流吗？
-- **数据驱动决策** - Opus vs Sonnet vs Haiku，哪个性价比更高？
-- **本地数据所有权** - 你的使用数据，你自己掌控
+- **Quantify usage costs** - Know your daily/weekly spend, avoid billing surprises
+- **Spot efficiency issues** - Low cache hit rate? Your prompt strategy might need tuning
+- **Identify usage patterns** - Which tasks consume the most? Is it worth optimizing your workflow?
+- **Make data-driven decisions** - Opus vs Sonnet vs Haiku: which gives you the best ROI?
+- **Own your data locally** - Your usage data stays under your control
 
-### 你可能发现的问题
+### Problems You Might Discover
 
-| 现象 | 可能的原因 | 改进方向 |
-|------|-----------|----------|
-| Cache 命中率 < 90% | 频繁切换项目/上下文 | 集中处理同类任务 |
-| Output tokens 异常高 | 生成了大量重复代码 | 更精确的 prompt |
-| 单次 session 成本过高 | 上下文过长未及时清理 | 适时开启新 session |
-| Haiku 调用为 0 | 没有利用轻量模型 | 简单任务切换 Haiku |
+| Symptom | Possible Cause | Action |
+|---------|---------------|--------|
+| Cache hit rate < 90% | Frequent project/context switching | Batch similar tasks together |
+| Unusually high output tokens | Generating lots of repetitive code | Write more precise prompts |
+| Single session cost too high | Context grew too long without cleanup | Start a new session sooner |
+| Zero Haiku calls | Not leveraging lightweight models | Switch to Haiku for simple tasks |
 
 ## Architecture
 
@@ -39,7 +39,8 @@ Claude Code → Nginx (4318) → ├── Upstream (transparent proxy)
 ### Prerequisites
 
 - macOS with Homebrew
-- Python 3 (with built-in `sqlite3` module)
+- [uv](https://docs.astral.sh/uv/) (installed automatically by the installer)
+- Python 3.10+ (managed by uv)
 - Claude Code CLI
 
 ### Installation
@@ -101,35 +102,37 @@ cci stats   # Then use cci anywhere
 ### Example Output
 
 ```
-============================================================
-  Claude Code Usage - Today
-============================================================
-  Total Requests:      42
-  Input Tokens:        85,234
-  Output Tokens:       32,891
-  Cache Read Tokens:   3,456,789
-  Cache Create Tokens: 312,456
-  Total Tokens:        3,887,370
-  Est. Cost:           $15.82
-  Cache Hit Rate:      97.6%
+╭──────────────────────────────╮
+│  CC-Insights · This Week     │
+╰──────────────────────────────╯
 
-  Daily Breakdown:
-  --------------------------------------------------------
-  2025-01-15  |     42 req  |     3,887,370 tokens
-============================================================
+  Requests: 156  ▲ +12%    Cost: $45.32  ▼ -5%    Cache Hit: 96.1%
+
+╭──────────────┬──────┬────────┬────────┬────────────┬────────┬───────────────╮
+│ Model        │ Reqs │ Input  │ Output │ Cache Read │ Cost   │ Share         │
+├──────────────┼──────┼────────┼────────┼────────────┼────────┼───────────────┤
+│ opus-4-5     │   98 │ 1.2M   │ 320K   │ 8.5M       │ $38.50 │ █████████░░░  │
+│ sonnet-4-5   │   45 │ 400K   │ 180K   │ 2.1M       │  $5.82 │ ██░░░░░░░░░░  │
+│ haiku-3-5    │   13 │ 80K    │ 40K    │ 500K       │  $1.00 │ ░░░░░░░░░░░░  │
+╰──────────────┴──────┴────────┴────────┴────────────┴────────┴───────────────╯
+
+  Peak Hours
+  09 ██████████████ 23
+  10 ████████████████████ 31
+  14 ██████████████████ 28
+  15 ████████████████████████████ 42
 ```
 
 ## Insights You Can Gain
 
-### Currently Available
-- **Cost tracking** - Daily/weekly/monthly spend with estimated costs
-- **Token breakdown** - Input, output, cache read, cache creation tokens
+- **Per-model cost breakdown** - See exactly how much each model (Opus, Sonnet, Haiku) costs you
+- **Dynamic pricing** - Accurate cost estimates using model-specific token pricing
+- **Peak hours analysis** - Visualize your usage patterns throughout the day
+- **Trend comparison** - Week-over-week and period-over-period changes with trend indicators
 - **Cache hit rate** - Measure prompt caching efficiency
-- **Request counts** - Track API call volume over time
+- **Rich TUI output** - Beautiful terminal reports with tables and bar charts
 
 ### Planned Features
-- Cost breakdown by model (Opus vs Haiku vs Sonnet)
-- Peak usage hours analysis
 - Session-level insights
 - Budget alerts and forecasting
 

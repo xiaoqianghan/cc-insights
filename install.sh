@@ -31,6 +31,12 @@ if ! command -v brew &> /dev/null; then
     exit 1
 fi
 
+if ! command -v uv &> /dev/null; then
+    echo -e "  Installing uv..."
+    brew install uv
+fi
+echo -e "  ${GREEN}✓${NC} uv available"
+
 # Install nginx and vector if needed
 for pkg in nginx vector; do
     if brew list $pkg &>/dev/null; then
@@ -109,6 +115,10 @@ echo -e "  ${GREEN}✓${NC} Vector: $VECTOR_CONF"
 # Set script permissions
 chmod +x "$SCRIPT_DIR/scripts/ctl.sh"
 chmod +x "$SCRIPT_DIR/scripts/stats.py"
+
+# Install Python dependencies via uv
+echo -e "  ${GREEN}✓${NC} Installing Python dependencies..."
+uv sync --project "$SCRIPT_DIR"
 
 # Step 5: Start services
 echo ""

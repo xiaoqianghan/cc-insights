@@ -1,0 +1,11 @@
+[project]
+name = "cc-insights"
+version = "0.2.0"
+description = "Claude Code Usage Analytics & Local Metrics Storage"
+requires-python = ">=3.10"
+dependencies = [
+    "rich>=13.0",
+]
+
+[project.scripts]
+cc-stats = "scripts.stats:main"

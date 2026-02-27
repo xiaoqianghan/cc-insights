@@ -3,12 +3,13 @@
 *.db
 vector-data/
 
-# Python
+# Python / uv
 __pycache__/
 *.py[cod]
 *.egg-info/
 .venv/
 venv/
+uv.lock
 
 # macOS
 .DS_Store

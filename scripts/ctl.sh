@@ -141,7 +141,9 @@ test_endpoint() {
 }
 
 stats() {
-    CC_INSIGHTS_DATA_DIR="$DATA_DIR" python3 "$SCRIPT_DIR/stats.py" "$@"
+    # Find project root (parent of scripts/)
+    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+    CC_INSIGHTS_DATA_DIR="$DATA_DIR" uv run --project "$PROJECT_DIR" python3 "$SCRIPT_DIR/stats.py" "$@"
 }
 
 case "$1" in
