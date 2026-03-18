@@ -39,30 +39,29 @@ DB_PATH = DATA_DIR / "metrics.db"
 RETENTION_DAYS = 1825
 
 # Multi-model pricing (per 1M tokens)
+# Source: https://docs.anthropic.com/en/docs/about-claude/pricing
+# cache_read = 0.1x base input, cache_write = 1.25x base input (5-min cache)
 MODEL_PRICING = {
-    "claude-opus-4-5-20250115":       {"input": 15, "output": 75, "cache_read": 1.875, "cache_write": 18.75},
-    "claude-sonnet-4-5-20250115":     {"input": 3, "output": 15, "cache_read": 0.30, "cache_write": 3.75},
-    "claude-haiku-3-5-20241022":      {"input": 0.80, "output": 4, "cache_read": 0.08, "cache_write": 1},
-    # Aliases for partial matches
-    "opus":    {"input": 15, "output": 75, "cache_read": 1.875, "cache_write": 18.75},
-    "sonnet":  {"input": 3, "output": 15, "cache_read": 0.30, "cache_write": 3.75},
-    "haiku":   {"input": 0.80, "output": 4, "cache_read": 0.08, "cache_write": 1},
+    # Normalized names (produced by normalize_model_name)
+    "opus-4-6":   {"input": 5, "output": 25, "cache_read": 0.50, "cache_write": 6.25},
+    "opus-4-5":   {"input": 5, "output": 25, "cache_read": 0.50, "cache_write": 6.25},
+    "opus-4-1":   {"input": 15, "output": 75, "cache_read": 1.50, "cache_write": 18.75},
+    "opus-4-0":   {"input": 15, "output": 75, "cache_read": 1.50, "cache_write": 18.75},
+    "sonnet-4-6": {"input": 3, "output": 15, "cache_read": 0.30, "cache_write": 3.75},
+    "sonnet-4-5": {"input": 3, "output": 15, "cache_read": 0.30, "cache_write": 3.75},
+    "sonnet-4-0": {"input": 3, "output": 15, "cache_read": 0.30, "cache_write": 3.75},
+    "haiku-4-5":  {"input": 1, "output": 5, "cache_read": 0.10, "cache_write": 1.25},
+    "haiku-3-5":  {"input": 0.80, "output": 4, "cache_read": 0.08, "cache_write": 1},
 }
-DEFAULT_PRICING = {"input": 15, "output": 75, "cache_read": 1.875, "cache_write": 18.75}
+DEFAULT_PRICING = {"input": 5, "output": 25, "cache_read": 0.50, "cache_write": 6.25}
 
 
 def get_pricing(model: str | None) -> dict:
-    """Get pricing for a model, with fuzzy matching."""
+    """Get pricing for a model (expects normalized names like 'opus-4-6')."""
     if not model:
         return DEFAULT_PRICING
-    # Exact match
     if model in MODEL_PRICING:
         return MODEL_PRICING[model]
-    # Fuzzy match by keyword
-    model_lower = model.lower()
-    for keyword in ("opus", "sonnet", "haiku"):
-        if keyword in model_lower:
-            return MODEL_PRICING[keyword]
     return DEFAULT_PRICING
 
 
