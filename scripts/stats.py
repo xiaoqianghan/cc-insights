@@ -6,9 +6,11 @@ Commands:
     cci stats              # Today's summary
     cci stats week         # This week's summary
     cci stats month        # This month's summary
+    cci stats year         # This year's summary
     cci stats sync         # Sync JSON files to SQLite
     cci stats check        # Check upstream forwarding status
     cci stats tail         # Watch for new metrics (live)
+    cci stats cleanup      # Remove data older than retention period
 """
 
 import json
@@ -32,6 +34,9 @@ DATA_DIR = Path(os.environ.get("CC_INSIGHTS_DATA_DIR", Path.home() / ".claude" /
 RAW_DIR = DATA_DIR / "raw"
 FAILED_DIR = DATA_DIR / "failed"
 DB_PATH = DATA_DIR / "metrics.db"
+
+# Data retention: 365 days (1 year)
+RETENTION_DAYS = 365
 
 # Multi-model pricing (per 1M tokens)
 MODEL_PRICING = {
@@ -218,6 +223,41 @@ def parse_otel_metrics(data: dict, fallback_date: str = None) -> list[dict]:
     except Exception as e:
         print(f"Warning: Error parsing metric: {e}")
         return []
+
+
+def cleanup_old_data(verbose: bool = False):
+    """Remove JSONL files and DB records older than RETENTION_DAYS."""
+    cutoff = datetime.now() - timedelta(days=RETENTION_DAYS)
+    cutoff_date = cutoff.strftime("%Y-%m-%d")
+
+    # Remove old JSONL files
+    deleted_paths: list[str] = []
+    if RAW_DIR.exists():
+        for jsonl_file in sorted(RAW_DIR.glob("metrics-*.jsonl")):
+            name = jsonl_file.name
+            try:
+                file_date = name[8:-6]  # "metrics-" = 8 chars, ".jsonl" = 6 chars
+                if file_date < cutoff_date:
+                    deleted_paths.append(str(jsonl_file))
+                    jsonl_file.unlink()
+            except (ValueError, IndexError):
+                continue
+
+    # Prune DB records and sync_state for deleted files
+    removed_rows = 0
+    if DB_PATH.exists():
+        conn = sqlite3.connect(DB_PATH)
+        cursor = conn.execute("DELETE FROM metrics WHERE date < ?", (cutoff_date,))
+        removed_rows = cursor.rowcount
+        if deleted_paths:
+            placeholders = ",".join("?" * len(deleted_paths))
+            conn.execute(f"DELETE FROM sync_state WHERE file_path IN ({placeholders})", deleted_paths)
+        conn.commit()
+        conn.close()
+
+    if verbose or deleted_paths or removed_rows > 0:
+        console.print(f"[dim]Cleanup: removed {len(deleted_paths)} old files, {removed_rows} old DB records "
+                      f"(retention: {RETENTION_DAYS} days)[/dim]")
 
 
 def sync_json_to_db():
@@ -550,6 +590,7 @@ def main():
     command = args[0] if args else "today"
 
     if command != "tail":
+        cleanup_old_data()
         sync_json_to_db()
 
     conn = init_db()
@@ -561,6 +602,10 @@ def main():
             print_stats(get_stats(conn, days=7, label="This Week"))
         elif command == "month":
             print_stats(get_stats(conn, days=30, label="This Month"))
+        elif command == "year":
+            print_stats(get_stats(conn, days=365, label="This Year"))
+        elif command == "cleanup":
+            cleanup_old_data(verbose=True)
         elif command == "sync":
             console.print("[green]Sync complete.[/green]")
         elif command == "check":

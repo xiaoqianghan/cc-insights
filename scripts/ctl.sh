@@ -9,7 +9,7 @@
 #   cci restart  - Restart services
 #   cci logs     - View Vector logs
 #   cci test     - Send a test metric
-#   cci stats    - Show usage statistics (today/week/month)
+#   cci stats    - Show usage statistics (today/week/month/year)
 #
 
 # Resolve symlinks to get the real script location
@@ -169,12 +169,14 @@ case "$1" in
         echo "  status    Check service status"
         echo "  logs      View Vector logs (tail -f)"
         echo "  test      Send test metric to verify setup"
-        echo "  stats     Usage statistics (today/week/month)"
+        echo "  stats     Usage statistics (today/week/month/year)"
         echo ""
         echo "Examples:"
         echo "  cci stats          # Today's usage"
         echo "  cci stats week     # This week"
         echo "  cci stats month    # This month"
+        echo "  cci stats year     # This year"
+        echo "  cci stats cleanup  # Remove data older than 1 year"
         exit 1
         ;;
 esac
