@@ -176,7 +176,7 @@ case "$1" in
         echo "  cci stats week     # This week"
         echo "  cci stats month    # This month"
         echo "  cci stats year     # This year"
-        echo "  cci stats cleanup  # Remove data older than 1 year"
+        echo "  cci stats cleanup  # Remove data older than 5 years"
         exit 1
         ;;
 esac

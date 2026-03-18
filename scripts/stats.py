@@ -35,8 +35,8 @@ RAW_DIR = DATA_DIR / "raw"
 FAILED_DIR = DATA_DIR / "failed"
 DB_PATH = DATA_DIR / "metrics.db"
 
-# Data retention: 365 days (1 year)
-RETENTION_DAYS = 365
+# Data retention: 5 years
+RETENTION_DAYS = 1825
 
 # Multi-model pricing (per 1M tokens)
 MODEL_PRICING = {
