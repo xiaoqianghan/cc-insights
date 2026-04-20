@@ -1,0 +1,49 @@
+linters:
+  enable:
+    - errcheck      # 检查未处理的错误返回值
+    - govet         # go vet 检查
+    - staticcheck   # 高质量静态分析
+    - unused        # 未使用的代码
+    - gosimple      # 可简化的代码
+    - ineffassign   # 无效赋值
+    - typecheck     # 类型检查
+    - gocritic      # 代码风格和性能建议
+    - gofmt         # 格式化检查
+    - goimports     # import 排序检查
+    - misspell      # 拼写错误
+
+linters-settings:
+  errcheck:
+    # 忽略这些函数/方法的返回值检查
+    exclude-functions:
+      - io.Copy
+      - os.Remove
+      - (*database/sql.Tx).Rollback
+      - (*database/sql.Stmt).Close
+      - (*database/sql.Rows).Close
+    # 不检查 Close、Shutdown、Write (ResponseWriter) 等惯用忽略
+    check-type-assertions: false
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+    disabled-checks:
+      - appendAssign
+
+issues:
+  exclude-use-default: false
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  exclude-rules:
+    # Close 忽略错误是 Go 惯例
+    - linters: [errcheck]
+      source: "\\.Close\\(\\)"
+    # Shutdown 忽略错误
+    - linters: [errcheck]
+      source: "\\.Shutdown\\("
+    # http ResponseWriter.Write 忽略错误
+    - linters: [errcheck]
+      source: "w\\.Write\\("
+    # IncrementStat 是 fire-and-forget
+    - linters: [errcheck]
+      source: "\\.IncrementStat\\("
