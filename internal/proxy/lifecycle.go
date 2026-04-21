@@ -95,16 +95,16 @@ func IsRunning() (bool, int) {
 		return false, pid
 	}
 
-	// Verify the process is actually cci by checking its executable path.
-	// On macOS/Linux, /proc/<pid>/exe or the stored exe path can be compared.
+	// Verify the process is actually cci. Compare by basename rather than
+	// full path: the daemon may have been launched from a different install
+	// location (e.g. /usr/local/bin/cci vs ~/.local/bin/cci) and both are
+	// legitimate cci processes.
 	if len(lines) > 1 {
 		storedExe := strings.TrimSpace(lines[1])
-		if currentExe, err := os.Executable(); err == nil {
-			if storedExe != "" && storedExe != currentExe {
-				// PID was reused by a different process — stale pidfile.
-				os.Remove(pidPath)
-				return false, pid
-			}
+		if storedExe != "" && filepath.Base(storedExe) != "cci" {
+			// PID was reused by a different program — stale pidfile.
+			os.Remove(pidPath)
+			return false, pid
 		}
 	}
 

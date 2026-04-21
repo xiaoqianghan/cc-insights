@@ -182,13 +182,21 @@ func statsCmd() *cobra.Command {
 }
 
 func statusCmd() *cobra.Command {
-	return &cobra.Command{
+	var quiet bool
+
+	cmd := &cobra.Command{
 		Use:   "status",
 		Short: "Show proxy status and health",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			running, pid := proxy.IsRunning()
 			if !running {
-				fmt.Println("cci proxy is not running.")
+				if !quiet {
+					fmt.Println("cci proxy is not running.")
+				}
+				os.Exit(1)
+			}
+
+			if quiet {
 				return nil
 			}
 
@@ -221,6 +229,9 @@ func statusCmd() *cobra.Command {
 			return nil
 		},
 	}
+
+	cmd.Flags().BoolVarP(&quiet, "quiet", "q", false, "No output; exit 0 if running, 1 otherwise")
+	return cmd
 }
 
 func configCmd() *cobra.Command {
