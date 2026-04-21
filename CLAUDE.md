@@ -5,7 +5,7 @@ Claude Code OTEL metrics proxy and analytics tool. Single Go binary (`cci`) that
 ## Quick Reference
 
 - **Build**: `make build`
-- **Install**: `sudo cp ./build/cci /usr/local/bin/cci`
+- **Install**: `make install` (installs to `~/.local/bin/cci`, no sudo required)
 - **Config**: `~/.claude/cc-insights/config.toml` (see `config.example.toml`)
 - **Lint**: `make lint`
 - **Test**: `make test`

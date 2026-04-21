@@ -16,24 +16,23 @@ Before starting, verify the user has:
 
 ```bash
 cd <repo-root>
-make build
+make install
 ```
 
-**IMPORTANT**: The old system may have created a symlink at `/usr/local/bin/cci` pointing to `scripts/ctl.sh`. If you `cp` over a symlink, the binary content goes to the symlink target instead of replacing it. Always check and remove first:
+This builds `cci` and installs it to `~/.local/bin/cci` (no sudo required).
+Make sure `~/.local/bin` is in your `PATH` — `make install` will warn if it isn't.
+
+**IMPORTANT**: The old system may have created a symlink at `/usr/local/bin/cci` pointing to `scripts/ctl.sh`. If one exists, remove it so it doesn't shadow the new user-level binary (depending on PATH order):
 
 ```bash
-# Check if it's a symlink
 ls -la /usr/local/bin/cci
-
-# If it shows -> scripts/ctl.sh (or any symlink), remove it first
+# If it shows -> scripts/ctl.sh (or any symlink), remove it:
 sudo rm /usr/local/bin/cci
-
-# Then install the real binary
-sudo cp ./build/cci /usr/local/bin/cci
 ```
 
 **Verify**:
-- `file /usr/local/bin/cci` — should show `Mach-O 64-bit executable` (not a symlink, not a shell script)
+- `which cci` — should show `~/.local/bin/cci`
+- `file $(which cci)` — should show `Mach-O 64-bit executable` (not a symlink, not a shell script)
 - `cci --help` — should show available commands (serve, stats, stop, status, config, migrate, uninstall-legacy)
 
 ### Step 2: Create Configuration

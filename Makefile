@@ -2,12 +2,16 @@
 
 BINARY=cci
 BUILD_DIR=./build
+INSTALL_DIR=$(HOME)/.local/bin
 
 build:
 	go build -o $(BUILD_DIR)/$(BINARY) ./cmd/cci
 
 install: build
-	cp $(BUILD_DIR)/$(BINARY) /usr/local/bin/$(BINARY)
+	@mkdir -p $(INSTALL_DIR)
+	install -m 755 $(BUILD_DIR)/$(BINARY) $(INSTALL_DIR)/$(BINARY)
+	@echo "Installed to $(INSTALL_DIR)/$(BINARY)"
+	@case ":$$PATH:" in *":$(INSTALL_DIR):"*) ;; *) echo "Warning: $(INSTALL_DIR) is not in PATH" ;; esac
 
 clean:
 	rm -rf $(BUILD_DIR)
