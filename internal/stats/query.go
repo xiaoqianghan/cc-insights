@@ -2,6 +2,7 @@ package stats
 
 import (
 	"database/sql"
+	"sort"
 	"time"
 
 	"github.com/xiaoqianghan/cc-insights/internal/config"
@@ -23,7 +24,8 @@ type PeriodStats struct {
 	Models              []ModelStats
 	PeakHours           []HourCount // top 3 hours
 	Daily               []DayStats
-	PrevPeriodCost      float64 // for trend comparison
+	PrevPeriodCost      float64  // for trend comparison
+	MissingPricing      []string // models observed but missing from config pricing
 }
 
 // ModelStats holds per-model usage statistics.
@@ -106,10 +108,14 @@ func Query(db *sql.DB, days int, label string, pricing map[string]config.ModelPr
 	defer rows.Close()
 
 	var totalCost float64
+	missing := make(map[string]struct{})
 	for rows.Next() {
 		var ms ModelStats
 		if err := rows.Scan(&ms.Model, &ms.Requests, &ms.InputTokens, &ms.OutputTokens, &ms.CacheReadTokens, &ms.CacheCreationTokens); err != nil {
 			return nil, err
+		}
+		if _, ok := pricing[ms.Model]; !ok {
+			missing[ms.Model] = struct{}{}
 		}
 		ms.Cost = computeCost(ms.InputTokens, ms.OutputTokens, ms.CacheReadTokens, ms.CacheCreationTokens, pricing, ms.Model)
 		totalCost += ms.Cost
@@ -211,6 +217,14 @@ func Query(db *sql.DB, days int, label string, pricing map[string]config.ModelPr
 	}
 	if err := prevRows.Err(); err != nil {
 		return nil, err
+	}
+
+	if len(missing) > 0 {
+		ps.MissingPricing = make([]string, 0, len(missing))
+		for m := range missing {
+			ps.MissingPricing = append(ps.MissingPricing, m)
+		}
+		sort.Strings(ps.MissingPricing)
 	}
 
 	return ps, nil

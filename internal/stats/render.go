@@ -26,6 +26,12 @@ func Render(stats *PeriodStats) {
 	line := strings.Repeat("─", max(60-len(header)-6, 4))
 	fmt.Printf("\n%s─── %s %s%s\n\n", bold, header, line, reset)
 
+	if len(stats.MissingPricing) > 0 {
+		fmt.Printf("  %s⚠  Missing pricing for: %s%s\n", yellow, strings.Join(stats.MissingPricing, ", "), reset)
+		fmt.Printf("  %sAdd [pricing.<model>] entries in ~/.claude/cc-insights/config.toml%s\n", dim, reset)
+		fmt.Printf("  %s(see config.example.toml for reference). Cost shown as $0 for these.%s\n\n", dim, reset)
+	}
+
 	// Summary
 	totalTokens := stats.InputTokens + stats.OutputTokens + stats.CacheReadTokens + stats.CacheCreationTokens
 	fmt.Printf("  Requests:  %-12s Cost: %s$%.2f%s\n", formatNumber(stats.TotalRequests), green, stats.TotalCost, reset)

@@ -102,25 +102,6 @@ func applyDefaults(cfg *Config) {
 	if cfg.Pricing == nil {
 		cfg.Pricing = make(map[string]ModelPricing)
 	}
-	applyDefaultPricing(cfg.Pricing)
-}
-
-func applyDefaultPricing(pricing map[string]ModelPricing) {
-	defaults := map[string]ModelPricing{
-		"opus-4-6":   {Input: 5.0, Output: 25.0, CacheRead: 0.50, CacheWrite: 6.25},
-		"opus-4-5":   {Input: 5.0, Output: 25.0, CacheRead: 0.50, CacheWrite: 6.25},
-		"opus-4-1":   {Input: 15.0, Output: 75.0, CacheRead: 1.50, CacheWrite: 18.75},
-		"sonnet-4-6": {Input: 3.0, Output: 15.0, CacheRead: 0.30, CacheWrite: 3.75},
-		"sonnet-4-5": {Input: 3.0, Output: 15.0, CacheRead: 0.30, CacheWrite: 3.75},
-		"sonnet-4-0": {Input: 3.0, Output: 15.0, CacheRead: 0.30, CacheWrite: 3.75},
-		"haiku-4-5":  {Input: 1.0, Output: 5.0, CacheRead: 0.10, CacheWrite: 1.25},
-		"haiku-3-5":  {Input: 0.80, Output: 4.0, CacheRead: 0.08, CacheWrite: 1.0},
-	}
-	for model, price := range defaults {
-		if _, ok := pricing[model]; !ok {
-			pricing[model] = price
-		}
-	}
 }
 
 func expandHome(path string) string {
