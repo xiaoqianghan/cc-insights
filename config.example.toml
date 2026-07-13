@@ -36,6 +36,26 @@ retention_days = 1825
 #
 # Bedrock Global endpoints use standard pricing (no premium).
 
+[pricing.fable-5]
+input = 10.0
+output = 50.0
+cache_read = 1.0
+cache_write = 12.5
+
+# Mythos 5 is available only to Project Glasswing participants and uses
+# the same pricing as Fable 5.
+[pricing.mythos-5]
+input = 10.0
+output = 50.0
+cache_read = 1.0
+cache_write = 12.5
+
+[pricing.opus-4-8]
+input = 5.0
+output = 25.0
+cache_read = 0.50
+cache_write = 6.25
+
 [pricing.opus-4-7]
 input = 5.0
 output = 25.0
@@ -59,6 +79,12 @@ input = 15.0
 output = 75.0
 cache_read = 1.50
 cache_write = 18.75
+
+[pricing.sonnet-5]
+input = 3.0
+output = 15.0
+cache_read = 0.30
+cache_write = 3.75
 
 [pricing.sonnet-4-6]
 input = 3.0

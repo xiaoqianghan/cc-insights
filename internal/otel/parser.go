@@ -125,9 +125,9 @@ func Parse(payload []byte) ([]MetricRecord, error) {
 	return records, nil
 }
 
-// modelPattern matches model identifiers like "claude-opus-4-6-v1" or
-// "us.anthropic.claude-sonnet-4-5-20250115-v1:0" and captures family + version (major-minor only).
-var modelPattern = regexp.MustCompile(`claude-(opus|sonnet|haiku)-(\d+-\d+)`)
+// modelPattern matches model identifiers like "claude-opus-4-8",
+// "us.anthropic.claude-fable-5", or "claude-sonnet-4-5-20250115-v1:0".
+var modelPattern = regexp.MustCompile(`claude-(opus|sonnet|haiku|fable|mythos)-(\d+(?:-\d+)?)`)
 
 // NormalizeModelName converts a raw model identifier to a short canonical form.
 // Example: "us.anthropic.claude-opus-4-6-v1:0" → "opus-4-6"
