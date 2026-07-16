@@ -2,7 +2,10 @@
 
 **Claude Code Usage Analytics & Local Metrics Storage**
 
-Collect and analyze your Claude Code usage metrics locally, while optionally forwarding to your company's monitoring system (e.g., Jellyfish).
+A single Go binary (`cci`) that sits between Claude Code and your company's
+monitoring system. It transparently forwards OTEL usage metrics upstream (e.g.
+Jellyfish) while storing a local copy in SQLite for cost analysis — so you can
+see exactly what you spend without touching the corporate pipeline.
 
 ## Why?
 
@@ -26,231 +29,277 @@ You can't improve what you don't measure. CC-Insights helps you:
 ## Architecture
 
 ```
-Claude Code → Nginx (4318) → ├── Upstream (transparent proxy)
-                             └── Vector (4319) → Local Storage
+OTLP client (Claude Code, or any exporter emitting claude_code.* metrics)
+        │  POST /v1/metrics
+        ▼
+   cci serve  (:4318)
+        ├─ parse OTEL → store to SQLite   (synchronous, before ACK)
+        ├─ return 200                      (client considers it delivered)
+        └─ forward raw payload → upstream  (background goroutine, e.g. Jellyfish)
 ```
 
-- **Nginx**: Listens on `:4318`, proxies to upstream, mirrors to Vector
-- **Vector**: Receives mirrored data, stores to daily JSONL files
-- **SQLite**: Aggregated metrics for fast queries
+- **Transparent forwarding**: the exact bytes received are forwarded upstream.
+  Even a payload `cci` can't parse is still forwarded, so nothing is lost.
+- **Local-first storage**: metrics are parsed and written to SQLite *before*
+  the request is acknowledged, so your local copy is durable.
+- **Single binary**: no nginx, no Vector, no Python. Just `cci`.
+
+> Replaces the legacy nginx + Vector + Python stack. Migrating? See
+> [`docs/MIGRATION_GUIDE.md`](docs/MIGRATION_GUIDE.md).
 
 ## Quick Start
 
 ### Prerequisites
 
-- macOS with Homebrew
-- [uv](https://docs.astral.sh/uv/) (installed automatically by the installer)
-- Python 3.10+ (managed by uv)
-- Claude Code CLI
+- Go 1.22+ (to build)
+- macOS or Linux
+- An OTLP metrics source (Claude Code, or any client exporting the
+  `claude_code.*` metric schema)
 
-### Installation
+### Install
 
 ```bash
 git clone https://github.com/xiaoqianghan/cc-insights.git
 cd cc-insights
-./install.sh
+make install          # builds and installs to ~/.local/bin/cci (no sudo)
 ```
 
-The installer will:
-1. Install nginx and vector via Homebrew
-2. Configure the proxy and storage
-3. Create the `cci` CLI command
-4. Start services
+Ensure `~/.local/bin` is on your `PATH`.
 
-### Configure Claude Code
+### Configure
 
-Add to `~/.claude/settings.json`:
+Copy the example config and set your upstream endpoint:
+
+```bash
+mkdir -p ~/.claude/cc-insights
+cp config.example.toml ~/.claude/cc-insights/config.toml
+$EDITOR ~/.claude/cc-insights/config.toml
+```
+
+At minimum, set `[upstream].url` (leave empty for local-only mode). See
+[Configuration](#configuration) below.
+
+### Point your OTLP client at cci
+
+cci listens on `127.0.0.1:4318`. For **Claude Code**, add to
+`~/.claude/settings.json`:
 
 ```json
 {
   "env": {
+    "CLAUDE_CODE_ENABLE_TELEMETRY": "1",
+    "OTEL_METRICS_EXPORTER": "otlp",
+    "OTEL_EXPORTER_OTLP_PROTOCOL": "http/json",
     "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": "http://127.0.0.1:4318/v1/metrics"
   }
 }
 ```
 
-If your company requires authentication headers:
+Any other OTLP client works too, as long as it POSTs `claude_code.token.usage`
+metrics (OTLP `http/json`) to that endpoint — authentication headers for the
+real backend belong in cci's `[upstream.headers]`, not in the client.
 
-```json
-{
-  "env": {
-    "OTEL_EXPORTER_OTLP_METRICS_ENDPOINT": "http://127.0.0.1:4318/v1/metrics",
-    "OTEL_EXPORTER_OTLP_HEADERS": "Authorization=Bearer your_token_here"
-  }
-}
+### Start the proxy
+
+```bash
+cci serve -d      # start in the background
+cci status        # confirm it's running
 ```
+
+The daemon auto-stops after the configured idle timeout (default 15m). Re-run
+`cci serve -d` to bring it back — or wire it into an on-demand hook (see
+[Keeping cci running](#keeping-cci-running)).
 
 ## Usage
 
-### CLI Commands
-
 ```bash
-# Use scripts directly
-./scripts/ctl.sh status          # Check service status
-./scripts/ctl.sh stats           # Today's usage
-./scripts/ctl.sh stats week      # This week's usage
-./scripts/ctl.sh stats month     # This month's usage
-./scripts/ctl.sh test            # Send test metric
-./scripts/ctl.sh logs            # View Vector logs
-./scripts/ctl.sh start/stop      # Control services
-
-# Or install global command (optional)
-sudo ln -sf $(pwd)/scripts/ctl.sh /usr/local/bin/cci
-cci stats   # Then use cci anywhere
+cci serve            # run in foreground (debug)
+cci serve -d         # run as a background daemon
+cci stop             # graceful shutdown (drains in-flight upstream forwards)
+cci status           # is it running? upstream failures? total records?
+cci stats            # today's usage (default)
+cci stats week       # last 7 days
+cci stats month      # last 30 days
+cci stats year       # last 365 days
+cci config           # print the effective configuration (JSON)
+cci migrate          # import legacy JSONL from ~/.claude/cc-insights/raw/
+cci uninstall-legacy # remove old nginx/Vector configs (preserves data)
 ```
 
 ### Example Output
 
-```
-╭──────────────────────────────╮
-│  CC-Insights · This Week     │
-╰──────────────────────────────╯
-
-  Requests: 156  ▲ +12%    Cost: $45.32  ▼ -5%    Cache Hit: 96.1%
-
-╭──────────────┬──────┬────────┬────────┬────────────┬────────┬───────────────╮
-│ Model        │ Reqs │ Input  │ Output │ Cache Read │ Cost   │ Share         │
-├──────────────┼──────┼────────┼────────┼────────────┼────────┼───────────────┤
-│ opus-4-5     │   98 │ 1.2M   │ 320K   │ 8.5M       │ $38.50 │ █████████░░░  │
-│ sonnet-4-5   │   45 │ 400K   │ 180K   │ 2.1M       │  $5.82 │ ██░░░░░░░░░░  │
-│ haiku-3-5    │   13 │ 80K    │ 40K    │ 500K       │  $1.00 │ ░░░░░░░░░░░░  │
-╰──────────────┴──────┴────────┴────────┴────────────┴────────┴───────────────╯
-
-  Peak Hours
-  09 ██████████████ 23
-  10 ████████████████████ 31
-  14 ██████████████████ 28
-  15 ████████████████████████████ 42
-```
-
-## Insights You Can Gain
-
-- **Per-model cost breakdown** - See exactly how much each model (Opus, Sonnet, Haiku) costs you
-- **Dynamic pricing** - Accurate cost estimates using model-specific token pricing
-- **Peak hours analysis** - Visualize your usage patterns throughout the day
-- **Trend comparison** - Week-over-week and period-over-period changes with trend indicators
-- **Cache hit rate** - Measure prompt caching efficiency
-- **Rich TUI output** - Beautiful terminal reports with tables and bar charts
-
-### Planned Features
-- Session-level insights
-- Budget alerts and forecasting
-
-## Data Storage
+`cci stats week`:
 
 ```
-~/.claude/cc-insights/
-├── raw/                    # Raw JSONL metrics (daily files)
-│   ├── metrics-2026-01-20.jsonl
-│   └── metrics-2026-01-21.jsonl
-├── metrics.db              # SQLite for fast queries
-└── vector-data/            # Vector internal state
-```
+─── Claude Code Usage (Jul 10 - Jul 16) ───────────────────
 
-### Data Format
+  Requests:  1,156        Cost: $312.40
+  Tokens:    48,204,915   Cache Hit: 98.7%
+  Trend:     ▲ +12.0% vs prev week
 
-Each line in the JSONL files is an OTEL metrics payload:
+  Model Breakdown:
+  MODEL            REQUESTS      TOKENS       COST  SHARE
+  opus-4-8              892   41,203,882   $268.10  85.8% ████████▌
+  sonnet-4-6            201    6,340,112    $38.20  12.2% █▏
+  haiku-4-5             63       660,921     $6.10   2.0% ▏
 
-```json
-{
-  "resourceMetrics": [{
-    "resource": {
-      "attributes": [
-        {"key": "user.email", "value": {"stringValue": "you@company.com"}},
-        {"key": "service.name", "value": {"stringValue": "claude-code"}}
-      ]
-    },
-    "scopeMetrics": [{
-      "metrics": [
-        {"name": "claude_code.cost.usage", "unit": "USD", ...},
-        {"name": "claude_code.token.usage", "unit": "tokens", ...}
-      ]
-    }]
-  }]
-}
+  Peak Hours: 15:00-16:00 (142 req), 10:00-11:00 (118 req)
+
+  Daily:
+  DATE           REQ      COST TREND
+  Jul 16          59   $10.58   ▼ -20%
+  Jul 15         326   $92.40   ▲ +8%
+  ...
 ```
 
 ## Configuration
+
+Config lives at `~/.claude/cc-insights/config.toml` (override with the
+`CCI_CONFIG` environment variable). All keys are optional; defaults are shown.
+
+```toml
+[proxy]
+listen = "127.0.0.1:4318"   # address the OTEL proxy listens on
+idle_timeout = "15m"        # auto-shutdown after this much inactivity
+
+[upstream]
+url = ""                    # forward here; empty = local-only (no forwarding)
+timeout = "10s"             # per-request timeout for upstream POSTs
+
+[upstream.headers]          # extra headers sent with every forwarded request
+# Authorization = "Bearer YOUR_TOKEN"
+# Host = "app.jellyfish.co"
+
+[storage]
+db_path = "~/.claude/cc-insights/metrics.db"
+retention_days = 1825       # rows older than this are pruned on `cci stats`
+
+# Per-model pricing, USD per million tokens. Cost is computed at query time,
+# so editing these re-prices historical data retroactively.
+# Model keys are the SHORT normalized form (see "Model normalization").
+# For AWS Bedrock Regional endpoints, apply a 10% premium.
+[pricing.opus-4-8]
+input = 5.0
+output = 25.0
+cache_read = 0.50
+cache_write = 6.25
+```
+
+See [`config.example.toml`](config.example.toml) for the full pricing table.
 
 ### Environment Variables
 
 | Variable | Default | Description |
 |----------|---------|-------------|
-| `CC_INSIGHTS_DATA_DIR` | `~/.claude/cc-insights` | Data storage location |
-
-### Config Files
-
-| File | Location |
-|------|----------|
-| Nginx config | `/opt/homebrew/etc/nginx/servers/cc-insights.conf` |
-| Vector config | `/opt/homebrew/etc/vector/vector.yaml` |
-
-## Troubleshooting
-
-### Services not running
-
-```bash
-./scripts/ctl.sh status       # Check status
-brew services restart nginx   # Restart nginx
-brew services restart vector  # Restart vector
-```
-
-### No data being collected
-
-1. Verify Claude Code settings:
-   ```bash
-   cat ~/.claude/settings.json | grep OTEL
-   ```
-
-2. Test the endpoint:
-   ```bash
-   ./scripts/ctl.sh test
-   ```
-
-3. Check logs:
-   ```bash
-   ./scripts/ctl.sh logs
-   tail -f /opt/homebrew/var/log/nginx/error.log
-   ```
-
-### Upstream 403 errors
-
-- Verify your Authorization header is correct
-- Check the upstream URL format (some services don't want `/v1/metrics` suffix)
-
-## Uninstall
-
-```bash
-./uninstall.sh
-```
-
-This removes configs and the CLI command but preserves your data.
+| `CCI_CONFIG` | `~/.claude/cc-insights/config.toml` | Config file location |
 
 ## How It Works
 
-### Nginx Mirror
+### Request handling
 
-The key mechanism is nginx's `mirror` directive:
+Every `POST /v1/metrics` is handled synchronously up to the ACK:
 
-```nginx
-mirror /mirror;
-mirror_request_body on;
+1. Read the body and reset the idle timer.
+2. Parse the OTEL payload. On parse error, still return `200` and forward the
+   raw body upstream (non-metric payloads are never dropped).
+3. Store parsed token records to SQLite.
+4. Return `200`.
+5. Forward the raw body upstream in a background goroutine (tracked by a
+   `WaitGroup` so `cci stop` drains in-flight forwards before exiting).
 
-location / {
-    proxy_pass $upstream;  # Main request
-}
+Upstream failures are counted in `proxy_stats.upstream_failures` and surfaced by
+`cci status`; they never affect local storage or the client's `200`.
 
-location = /mirror {
-    internal;
-    proxy_pass http://vector_local;  # Copy of request
-}
+### What gets stored
+
+Only `claude_code.token.usage` data points are persisted, keyed by timestamp and
+model, with `input` / `output` / `cacheRead` / `cacheCreation` token counts. The
+`claude_code.cost.usage` and `claude_code.session.count` metrics are forwarded
+upstream but **not** stored — cost is recomputed locally from the pricing table
+at query time, so it always reflects your current `[pricing.*]` config.
+
+### Model normalization
+
+Raw model identifiers are normalized to a short canonical form before storage:
+
+```
+us.anthropic.claude-opus-4-8              → opus-4-8
+us.anthropic.claude-sonnet-4-6-...-v1:0   → sonnet-4-6
+claude-haiku-4-5-20251001-v1:0            → haiku-4-5
 ```
 
-Every request is:
-1. Proxied to upstream (response returned to client)
-2. Mirrored to Vector (response discarded)
+Recognized families: `opus`, `sonnet`, `haiku`, `fable`, `mythos`. Unrecognized
+names are preserved as-is (no silent fallback). Pricing keys must match the
+normalized short form; models seen without a matching `[pricing.*]` entry show
+`$0.00` and are listed as missing by `cci stats`.
 
-This is non-blocking and doesn't affect latency.
+## Data Storage
+
+```
+~/.claude/cc-insights/
+├── metrics.db       # SQLite: metrics + proxy_stats tables
+├── config.toml      # your configuration
+└── cci.pid          # daemon PID + executable path
+```
+
+The `metrics` table is the source of truth; `cci stats` aggregates it and
+computes cost on the fly. WAL mode is enabled, so reads (stats/status) and the
+daemon's writes coexist safely.
+
+## Keeping cci running
+
+The daemon shuts itself down after `idle_timeout` and there is no bundled
+service manager. To make it start on demand, add a shell hook that launches it
+if the port is free:
+
+```bash
+# ~/.zshrc — start cci if nothing is listening on 4318
+if ! lsof -i :4318 -sTCP:LISTEN &>/dev/null; then
+  cci serve -d &>/dev/null
+fi
+```
+
+## Troubleshooting
+
+**Proxy not running / no data collected**
+
+```bash
+cci status                                   # running? record count?
+cat ~/.claude/settings.json | grep OTEL      # client pointed at :4318?
+cci serve -d                                 # (re)start it
+```
+
+**Upstream failures climbing** (`cci status`)
+
+- Verify `[upstream.headers].Authorization` is valid (expired token is the usual cause).
+- Check `[upstream].url` — some backends reject the `/v1/metrics` suffix.
+- Local storage is unaffected; only forwarding failed.
+
+**`cci stats` shows a model at $0.00 / "missing pricing"**
+
+- Add a `[pricing.<short-model>]` entry using the normalized short name
+  (e.g. `opus-4-8`, not the full Bedrock ID).
+
+## Development
+
+```bash
+make build    # build to ./build/cci
+make test     # go test ./...
+make lint     # golangci-lint
+make fmt      # goimports + gofmt
+make check    # fmt + lint + test
+```
+
+Layout:
+
+```
+cmd/cci/            # CLI entrypoint (cobra commands)
+internal/proxy/     # HTTP server, upstream forwarding, daemon lifecycle
+internal/otel/      # OTEL JSON parsing + model normalization
+internal/storage/   # SQLite schema, inserts, stats counters
+internal/stats/     # query aggregation + terminal rendering
+internal/config/    # TOML config loading + defaults
+```
 
 ## License
 
